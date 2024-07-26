@@ -54,3 +54,44 @@ func NewUserEmailCheckPost(ctx *fasthttp.RequestCtx) {
 	ctx.SetStatusCode(200)
 	ctx.WriteString("{\"Email\":\"Exist\"}")
 }
+
+func Api_Login(ctx *fasthttp.RequestCtx) {
+	ctx.SetContentType("application/json; charset=utf-8")
+	var user Email
+	err := jsoniter.Unmarshal(ctx.Request.Body(), &user)
+	if err != nil {
+		panic(err)
+	}
+	filter := bson.D{{"Email", user.Email}}
+	err = collection_users.FindOne(context.TODO(), filter).Err()
+	if err == nil {
+		ctx.SetStatusCode(fasthttp.StatusAccepted)
+		ctx.WriteString("EmailPassed!")
+	} else if err != mongo.ErrNoDocuments {
+		panic(err)
+	}
+	ctx.SetStatusCode(200)
+	ctx.WriteString("{\"Email\":\"Exist\"}")
+}
+
+type Emailauth struct {
+	Email string
+}
+
+func Api_Email_Auth(ctx *fasthttp.RequestCtx) {
+	ctx.SetContentType("application/json; charset=utf-8")
+	var user Email
+	err := jsoniter.Unmarshal(ctx.Request.Body(), &user)
+	if err != nil {
+		panic(err)
+	}
+	filter := bson.D{{"Email", user.Email}}
+	err = collection_users.FindOne(context.TODO(), filter).Err()
+	if err == nil {
+		ctx.SetStatusCode(403)
+		return
+	} else if err != mongo.ErrNoDocuments {
+
+	}
+	panic(err)
+}

@@ -1,0 +1,20 @@
+
+Port = # Port number | 端口号 
+ReadTimeout = 30 
+Servername = "" # listen domain/ip | 监听域名/ip地址
+WriteTimeout = 30 
+
+[userpanel]
+DefaultPerferedLanguage = "ZH-CN" # default perfered language | 默认语言
+DefaultUserGroup = "user" # default user group | 默认用户组
+Enable = true # enable builtin panel | 启用内置面板
+
+[yggdrasilapi]
+Enable = true # enable yggdrasilapi | 启用 yggdrasilapi（世界树外置登录） 实现
+
+[mongoDB]
+Database = "" # mongoDB database database name | mongoDB数据库数据库名
+Host = "localhost" # mongoDB database ip/domain | mongoDB数据库ip/域名
+Password = "" # mongoDB database password | mongoDB数据库登陆密码
+Port = 27017 # mongoDB database port | mongoDB数据库端口
+User = "" # mongoDB database username | mongoDB数据库用户名

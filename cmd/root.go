@@ -48,6 +48,10 @@ func runServer() {
 		panelconfig := panel.PanelDefaultConfig_t{
 			DefaultUserGroup:        viper.GetString("DefaultUserGroup"),
 			DefaultPerferedLanguage: viper.GetString("DefaultPerferedLanguage"),
+			SmtpAddress:             viper.GetString("Smtp.Address"),
+			SmtpServer:              viper.GetString("Smtp.Server"),
+			SmtpAuthCode:            viper.GetString("Smtp.AuthCode"),
+			SmtpUsername:            viper.GetString("Smtp.Username"),
 		}
 		panel.Panelinit(&panelconfig)
 		fmt.Println("User Panel Enabled")
@@ -56,11 +60,18 @@ func runServer() {
 		router.POST("/login", panel.Login_page_post)
 		router.GET("/register", panel.Register_page_get)
 		router.POST("/register", panel.Register_page_get)
-		router.POST("/register/newuseremailcheck", panel.NewUserEmailCheckPost)
-		router.POST("/register/newusernamecheck", panel.NewUserNameCheckPost)
 		router.GET("/panel", panel.UserpanelFunc_get)
 		router.POST("/panel", panel.UserpanelFunc_get)
 		router.GET("/adminpanel", panel.Adminpanel_page_get)
+		router.POST("/api/newuseremailcheck", panel.NewUserEmailCheckPost)
+		router.POST("/api/newusernamecheck", panel.NewUserNameCheckPost)
+		router.POST("/api/login", panel.Api_Login)
+		router.POST("/api/emailauth", panel.Api_Email_Auth)
+	}
+	// Yggdrasil api
+	if viper.GetBool("yggdrasilapi.Enable") {
+		router.GET("/mcauth/", panel.Index_page_get)
+
 	}
 
 	// 启动web服务器，监听 servername:port

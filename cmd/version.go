@@ -7,7 +7,7 @@ import (
 )
 
 func versionPrint() {
-	fmt.Println("CRAAPI developing version: v0.3.0002")
+	fmt.Println("CRAAPI developing version: v0.3.0003")
 }
 
 var versionCmd = &cobra.Command{

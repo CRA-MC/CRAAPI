@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jordan-wright/email"
 	"github.com/valyala/fasthttp"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,15 +20,21 @@ var collection_users, collection_overloaded, collection_cookie *mongo.Collection
 type PanelDefaultConfig_t struct {
 	DefaultUserGroup        string
 	DefaultPerferedLanguage string
+	SmtpAddress             string
+	SmtpServer              string
+	SmtpAuthCode            string
+	SmtpUsername            string
 }
 
 var defaultconfig *PanelDefaultConfig_t
+var email_send email.Email
 
 func Panelinit(config *PanelDefaultConfig_t) {
 	collection_users = mongodb.Mongodb_GetCollection("Users", "craapi")
 	collection_overloaded = mongodb.Mongodb_GetCollection("Overloaded", "craapi")
 	collection_cookie = mongodb.Mongodb_GetCollection("Cookie", "craapi")
 	defaultconfig = config
+
 }
 
 func isExist(f string) bool {

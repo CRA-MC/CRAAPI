@@ -23,19 +23,22 @@ func CookieShow(key []byte, value []byte) {
 }
 
 func Login_page_get(ctx *fasthttp.RequestCtx) {
+	// fmt.Println(ctx.Request.Header.String())
 	cookieid := string(ctx.Request.Header.Cookie("id"))
 	filter := bson.D{{"Cookie", cookieid}}
 	var cookiehandle define.DB_Cookie
 	err := collection_cookie.FindOne(context.TODO(), filter).Decode(&cookiehandle)
 	if err == nil {
-		filter = bson.D{{"_id", cookiehandle.UserID}}
-		var res define.DB_User
-		err = collection_users.FindOne(context.TODO(), filter).Decode(&res)
-		ctx.WriteString("欢迎回来，" + res.Username)
+		// filter = bson.D{{"_id", cookiehandle.UserID}}
+		// var res define.DB_User
+		// err = collection_users.FindOne(context.TODO(), filter).Decode(&res)
+		// ctx.WriteString("欢迎回来，" + res.Username)
+		ctx.Redirect("/", 307)
+		ctx.SetStatusCode(fasthttp.StatusTemporaryRedirect)
 		return
 	}
 	ctx.SetContentType("text/html; charset=utf-8")
-	tmpl, err := template.ParseFiles("templates/login.tpl")
+	tmpl, err := template.ParseFiles("templates/login.html")
 	if err != nil {
 		fmt.Println("create template failed, err", err)
 		ctx.Redirect("/static/403.html", 307)
@@ -58,7 +61,7 @@ func Login_page_post(ctx *fasthttp.RequestCtx) {
 		err = collection_users.FindOne(context.TODO(), filter).Decode(&res)
 		if err == mongo.ErrNoDocuments {
 			ctx.SetContentType("text/html; charset=utf-8")
-			tmpl, err := template.ParseFiles("templates/login.tpl")
+			tmpl, err := template.ParseFiles("templates/login.html")
 			if err != nil {
 				fmt.Println("create template failed, err", err)
 				ctx.Redirect("/static/403.html", 307)
@@ -118,7 +121,7 @@ func Login_page_post(ctx *fasthttp.RequestCtx) {
 	}
 
 	ctx.SetContentType("text/html; charset=utf-8")
-	tmpl, err := template.ParseFiles("templates/login.tpl")
+	tmpl, err := template.ParseFiles("templates/login.html")
 	if err != nil {
 		fmt.Println("create template failed, err", err)
 		ctx.Redirect("/static/403.html", 307)

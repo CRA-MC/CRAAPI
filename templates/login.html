@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="static/css/horsezaos.css">
+</head>
+<body>
+        <!--Navbar-->
+        <div class="nav">
+            <h2>CRA Studio</h2>
+       
+       </div>
+           <!--内容-->
+           <div class="content"> 
+            <div class="login wrap">
+                <div class="h1">
+                    <div class="box-mini" id="boxmini">
+                        <svg 
+                        clip-rule="evenodd" 
+                        fill-rule="evenodd" 
+                        stroke-linejoin="round" 
+                        stroke-miterlimit="2" 
+                        viewBox="0 0 24 24" 
+                        xmlns="http://www.w3.org/2000/svg" width="30px" height="30px">
+                        <path d="m3.514 6.61c-.317.179-.514.519-.514.887v8.95c0 .37.197.708.514.887 1.597.901 6.456 3.639 8.005 4.512.152.085.319.128.487.128.164 0 .328-.041.477-.123 1.549-.855 6.39-3.523 7.994-4.408.323-.177.523-.519.523-.891v-9.055c0-.368-.197-.708-.515-.887-1.595-.899-6.444-3.632-7.999-4.508-.151-.085-.319-.128-.486-.128-.168 0-.335.043-.486.128-1.555.876-6.405 3.609-8 4.508m15.986 2.115v7.525l-6.75 3.722v-7.578zm-15 7.425v-7.458l6.75 3.75v7.511zm.736-8.769 6.764-3.813 6.801 3.834-6.801 3.716z" fill-rule="nonzero"/>
+                        </svg>
+                        <p id="message"></p>
+                    </div>
+                    <span style="font-size: 26pt;">登录</span></div>
+                    <form onsubmit="return validateForm()">
+                        <input placeholder="user" id="email" name="email" type="text">
+                        <input placeholder="Password" id="password" name="password" type="password">
+                        <input value="Login" class="btn" type="submit">
+                        <i style="animation: bounce2 1.8s;font-size: 14px;">忘记密码？<a>点我！</a></i>
+                    </form>
+              </div>
+           </div>
+</body>
+
+<script>
+    function validateForm() {
+        var email = document.getElementById('email').value;
+        var password = document.getElementById('password').value;
+        var message = document.getElementById('message');
+        var boxmini = document.getElementById('boxmini'); 
+        var valid = true;
+    
+        // 清除之前的错误消息
+        message.textContent = '';
+    
+        // 验证邮箱格式
+
+    // 验证账户和密码
+    if (password !== 'admin4006' || email !== 'admin') {
+        setTimeout("message.textContent = '账户或密码错误';",100);
+        boxmini.style.width = '100%';
+        boxmini.style.backgroundColor = '#ff4c4c'
+        valid = false;
+    }
+    // 如果输入为空，提示不能输入为空
+    if (email === '' || password === '') {
+        setTimeout("message.textContent = '输入不能为空';",100);
+        boxmini.style.width = '100%';
+        boxmini.style.backgroundColor = '#ff4c4c'
+        valid = false;
+    }
+    if (!valid){
+        setTimeout(function(){
+        message.textContent = '';
+        boxmini.style.width = '45px';
+        boxmini.style.backgroundColor = '#ffffff'
+        },2000)
+    }
+    // 如果验证失败，阻止表单提交
+    return valid;
+}
+</script>
+
+</html>
