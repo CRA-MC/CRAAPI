@@ -1,16 +1,21 @@
 package cmd
 
 import (
+	"craapi/cmd/packages/auth"
 	"craapi/cmd/packages/mongodb"
 	"craapi/cmd/packages/panel"
 	"fmt"
 	"log"
+	"mime"
 	"net/http"
+	"net/smtp"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/fasthttp/router"
+	"github.com/jordan-wright/email"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/valyala/fasthttp"
@@ -39,19 +44,52 @@ func runServer() {
 		os.Exit(1)
 	}
 	mongodb.Mongodb_INIT(viper.GetString("mongoDB.User"), viper.GetString("mongoDB.Password"), viper.GetString("mongoDB.Host"), viper.GetInt("mongoDB.Port"), viper.GetString("mongoDB.Database"))
+	auth.Init()
 
 	fmt.Println("API Server is tring to run at:", viper.GetString("Servername")+":"+strconv.Itoa(viper.GetInt("Port")))
 	router := router.New()
+
+	Email_ch := make(chan *email.Email, 10)
+	p, err := email.NewPool(
+		viper.GetString("smtp.Server"),
+		viper.GetInt("smtp.Connection"),
+		smtp.PlainAuth("", viper.GetString("smtp.Username"), viper.GetString("smtp.AuthCode"), viper.GetString("smtp.Server")),
+	)
+	if err != nil {
+		log.Fatal("failed to create pool:", err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(viper.GetInt("smtp.Connection"))
+	for i := 0; i < viper.GetInt("smtp.Connection"); i++ {
+		go func() {
+			defer wg.Done()
+			for e := range Email_ch {
+				err := p.Send(e, 10*time.Second)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "email:%v sent error:%v\n", e, err)
+				}
+			}
+		}()
+	}
+	if viper.GetBool("smtp.Debug") {
+		e := email.NewEmail()
+		e.From = mime.QEncoding.Encode("UTF-8", viper.GetString("smtp.EmailName")+" <"+viper.GetString("smtp.Address")+">")
+		e.To = []string{viper.GetString("smtp.DebugSendAddress")}
+		e.Subject = "Craapi Test"
+		e.Text = []byte(fmt.Sprintf("Craapi email test message"))
+		Email_ch <- e
+	}
+
 	// 不同的路由执行不同的处理函数
 	// 用户面板
 	if viper.GetBool("userpanel.Enable") {
 		panelconfig := panel.PanelDefaultConfig_t{
 			DefaultUserGroup:        viper.GetString("DefaultUserGroup"),
 			DefaultPerferedLanguage: viper.GetString("DefaultPerferedLanguage"),
-			SmtpAddress:             viper.GetString("Smtp.Address"),
-			SmtpServer:              viper.GetString("Smtp.Server"),
-			SmtpAuthCode:            viper.GetString("Smtp.AuthCode"),
-			SmtpUsername:            viper.GetString("Smtp.Username"),
+			SmtpAddress:             viper.GetString("smtp.Address"),
+			SmtpServer:              viper.GetString("smtp.Server"),
+			SmtpAuthCode:            viper.GetString("smtp.AuthCode"),
+			SmtpUsername:            viper.GetString("smtp.Username"),
 		}
 		panel.Panelinit(&panelconfig)
 		fmt.Println("User Panel Enabled")
@@ -63,11 +101,12 @@ func runServer() {
 		router.GET("/panel", panel.UserpanelFunc_get)
 		router.POST("/panel", panel.UserpanelFunc_get)
 		router.GET("/adminpanel", panel.Adminpanel_page_get)
-		router.POST("/api/newuseremailcheck", panel.NewUserEmailCheckPost)
-		router.POST("/api/newusernamecheck", panel.NewUserNameCheckPost)
-		router.POST("/api/login", panel.Api_Login)
-		router.POST("/api/emailauth", panel.Api_Email_Auth)
 	}
+	// craapi
+	router.POST("/api/newuseremailcheck", panel.NewUserEmailCheckPost)
+	router.POST("/api/newusernamecheck", panel.NewUserNameCheckPost)
+	router.POST("/api/login", panel.Api_Login)
+	router.POST("/api/emailauth", panel.Api_Email_Auth)
 	// Yggdrasil api
 	if viper.GetBool("yggdrasilapi.Enable") {
 		router.GET("/mcauth/", panel.Index_page_get)
@@ -82,7 +121,7 @@ func runServer() {
 		Concurrency:  256 * 1024,
 	}
 	log.Fatal(server.ListenAndServe(viper.GetString("Servername") + ":" + strconv.Itoa(viper.GetInt("Port"))))
-	err := http.ListenAndServe(viper.GetString("Servername")+":"+strconv.Itoa(viper.GetInt("Port")), nil)
+	err = http.ListenAndServe(viper.GetString("Servername")+":"+strconv.Itoa(viper.GetInt("Port")), nil)
 	if err != nil {
 		fmt.Println("HTTP SERVER failed,err:", err)
 		return
