@@ -1,13 +1,18 @@
 package cmd
 
 import (
+	"craapi/packages/log"
 	"fmt"
 
 	"github.com/spf13/cobra"
 )
 
 func versionPrint() {
-	fmt.Println("CRAAPI developing version: v0.3.0004")
+	if !v {
+		log.LOGI("CRAAPI develpopment version: v0.4.0003.0005 BUG FIX")
+	} else {
+		fmt.Println("CRAAPI develpopment version: v0.4.0003.0005 BUG FIX")
+	}
 }
 
 var versionCmd = &cobra.Command{

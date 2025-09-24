@@ -1,1 +1,10 @@
 craapi.config
+craapi.log
+logs/
+static/
+templates/
+craapi_working.config
+ID_RSA
+ID_RSA.pub
+nohup.out
+server
