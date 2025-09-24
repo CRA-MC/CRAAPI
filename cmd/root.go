@@ -1,13 +1,16 @@
 package cmd
 
 import (
-	"craapi/cmd/packages/auth"
-	"craapi/cmd/packages/mongodb"
-	"craapi/cmd/packages/panel"
+	"craapi/packages/api"
+	"craapi/packages/cos"
+	"craapi/packages/encryption"
+	"craapi/packages/log"
+	"craapi/packages/mongodb"
+	"craapi/packages/panel"
+	"craapi/packages/register"
+	"craapi/packages/yggdrasilapi"
 	"fmt"
-	"log"
 	"mime"
-	"net/http"
 	"net/smtp"
 	"os"
 	"strconv"
@@ -24,13 +27,25 @@ import (
 var cfgFile string
 var v bool
 
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
 func runServer() {
+	versionPrint()
 	if v {
-		versionPrint()
 		os.Exit(0)
 	}
 
-	fmt.Println("config file:" + cfgFile)
+	go log.LOG()
+
+	var err error
+
+	log.LOGI("config file:" + cfgFile)
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 		viper.SetConfigType("toml")
@@ -38,25 +53,49 @@ func runServer() {
 		viper.SetConfigFile("./craapi.config")
 		viper.SetConfigType("toml")
 	}
+	err = viper.ReadInConfig()
 
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Can't read config:", err)
+	if err != nil {
+		log.LOGI("Can't read config:", err)
 		os.Exit(1)
 	}
-	mongodb.Mongodb_INIT(viper.GetString("mongoDB.User"), viper.GetString("mongoDB.Password"), viper.GetString("mongoDB.Host"), viper.GetInt("mongoDB.Port"), viper.GetString("mongoDB.Database"))
-	auth.Init()
 
-	fmt.Println("API Server is tring to run at:", viper.GetString("Servername")+":"+strconv.Itoa(viper.GetInt("Port")))
+	if fileExists("ID_RSA") && fileExists("ID_RSA.pub") {
+		encryption.Privatekey, err = os.ReadFile("ID_RSA")
+		if err != nil {
+			log.LOGI("Can't read ID_RSA:", err)
+			os.Exit(1)
+		}
+		encryption.Publickey, err = os.ReadFile("ID_RSA.pub")
+		if err != nil {
+			log.LOGI("Can't read ID_RSA.pub:", err)
+			os.Exit(1)
+		}
+	} else {
+		GenRsaKey(4096)
+	}
+
+	mongodb.Mongodb_INIT(viper.GetString("mongoDB.User"), viper.GetString("mongoDB.Password"), viper.GetString("mongoDB.Host"), viper.GetInt("mongoDB.Port"), viper.GetString("mongoDB.Database"))
+	mongodb.Mongodb_GetCollections()
+
+	log.LOGI("API Server is tring to run at: ", viper.GetString("Servername")+":"+strconv.Itoa(viper.GetInt("Port")))
+
+	if viper.GetBool("tencentCOS.Enable") {
+		cos.COS_INIT()
+		// fmt.Println(cos.GetCOSURL("craregister.exe"))
+	}
+
 	router := router.New()
 
 	Email_ch := make(chan *email.Email, 10)
 	p, err := email.NewPool(
-		viper.GetString("smtp.Server"),
+		viper.GetString("smtp.Host")+":"+strconv.Itoa(viper.GetInt("smtp.Port")),
 		viper.GetInt("smtp.Connection"),
-		smtp.PlainAuth("", viper.GetString("smtp.Username"), viper.GetString("smtp.AuthCode"), viper.GetString("smtp.Server")),
+		smtp.PlainAuth("", viper.GetString("smtp.Username"), viper.GetString("smtp.AuthCode"), viper.GetString("smtp.Host")),
 	)
 	if err != nil {
-		log.Fatal("failed to create pool:", err)
+		log.LOGE("failed to create pool:", err)
+		panic(err)
 	}
 	var wg sync.WaitGroup
 	wg.Add(viper.GetInt("smtp.Connection"))
@@ -66,7 +105,7 @@ func runServer() {
 			for e := range Email_ch {
 				err := p.Send(e, 10*time.Second)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "email:%v sent error:%v\n", e, err)
+					fmt.Fprintf(os.Stderr, "email to %v sent error:%v\n", e.To, err)
 				}
 			}
 		}()
@@ -76,12 +115,16 @@ func runServer() {
 		e.From = mime.QEncoding.Encode("UTF-8", viper.GetString("smtp.EmailName")+" <"+viper.GetString("smtp.Address")+">")
 		e.To = []string{viper.GetString("smtp.DebugSendAddress")}
 		e.Subject = "Craapi Test"
-		e.Text = []byte(fmt.Sprintf("Craapi email test message"))
+		e.Text = []byte("Craapi email test message")
 		Email_ch <- e
 	}
 
+	register.Init("user", &Email_ch)
+
 	// 不同的路由执行不同的处理函数
 	// 用户面板
+	router.NotFound = panel.D404
+	router.HandleMethodNotAllowed = false
 	if viper.GetBool("userpanel.Enable") {
 		panelconfig := panel.PanelDefaultConfig_t{
 			DefaultUserGroup:        viper.GetString("DefaultUserGroup"),
@@ -92,25 +135,41 @@ func runServer() {
 			SmtpUsername:            viper.GetString("smtp.Username"),
 		}
 		panel.Panelinit(&panelconfig)
-		fmt.Println("User Panel Enabled")
+		log.LOGI("User Panel Enabled")
 		router.GET("/", panel.Index_page_get)
+		router.POST("/", panel.Index_page_get)
 		router.GET("/login", panel.Login_page_get)
 		router.POST("/login", panel.Login_page_post)
 		router.GET("/register", panel.Register_page_get)
-		router.POST("/register", panel.Register_page_get)
+		router.POST("/register", panel.Register_page_post)
 		router.GET("/panel", panel.UserpanelFunc_get)
 		router.POST("/panel", panel.UserpanelFunc_get)
-		router.GET("/adminpanel", panel.Adminpanel_page_get)
+		// router.GET("/adminpanel", panel.Adminpanel_page_get)
 	}
+
 	// craapi
-	router.POST("/api/newuseremailcheck", panel.NewUserEmailCheckPost)
-	router.POST("/api/newusernamecheck", panel.NewUserNameCheckPost)
-	router.POST("/api/login", panel.Api_Login)
-	router.POST("/api/emailauth", panel.Api_Email_Auth)
+	// router.POST("/api/newuseremailcheck", panel.NewUserEmailCheckPost)
+	// router.POST("/api/newusernamecheck", panel.NewUserNameCheckPost)
+	router.POST("/api/login", api.Api_Login)
+	router.POST("/api/emailauth", api.Api_EmailAuth)
+	router.POST("/api/register", api.Api_Register)
+	router.POST("/api/getuserinfo", api.Api_GetUserinfo)
+
 	// Yggdrasil api
 	if viper.GetBool("yggdrasilapi.Enable") {
-		router.GET("/mcauth/", panel.Index_page_get)
-
+		yggdrasilapi.Yggdrasilapiinit(viper.GetStringSlice("yggdrasilapi.SkinDomains"), viper.GetString("Domain"))
+		router.GET("/mcauth", yggdrasilapi.Yggdrasil)
+		router.POST("/mcauth/authserver/authenticate", yggdrasilapi.UserAuth)
+		router.POST("/mcauth/authserver/refresh", yggdrasilapi.TokenRefresh)
+		router.POST("/mcauth/authserver/validate", yggdrasilapi.TokenVail)
+		router.POST("/mcauth/authserver/invalidate", yggdrasilapi.TokeninValid)
+		router.POST("/mcauth/authserver/signout", yggdrasilapi.Signout)
+		router.POST("/mcauth/sessionserver/session/minecraft/join", yggdrasilapi.ServerJoin)
+		router.GET("/mcauth/sessionserver/session/minecraft/hasJoined", yggdrasilapi.ServerhasJoined)
+		router.GET("/mcauth/sessionserver/session/minecraft/profile/{uuid}", yggdrasilapi.ProfileSearch)
+		router.POST("/mcauth/api/profiles/minecraft", yggdrasilapi.ProfileMutiSearch)
+		router.POST("/mcauth/minecraftservices/publickeys", yggdrasilapi.Yggdrasilpubkey)
+		router.GET("/mcauth/minecraftservices/publickeys", yggdrasilapi.Yggdrasilpubkey)
 	}
 
 	// 启动web服务器，监听 servername:port
@@ -120,13 +179,12 @@ func runServer() {
 		WriteTimeout: time.Duration(viper.GetInt("WriteTimeout")) * time.Second,
 		Concurrency:  256 * 1024,
 	}
-	log.Fatal(server.ListenAndServe(viper.GetString("Servername") + ":" + strconv.Itoa(viper.GetInt("Port"))))
-	err = http.ListenAndServe(viper.GetString("Servername")+":"+strconv.Itoa(viper.GetInt("Port")), nil)
+	err = server.ListenAndServe(viper.GetString("Servername") + ":" + strconv.Itoa(viper.GetInt("Port")))
 	if err != nil {
-		fmt.Println("HTTP SERVER failed,err:", err)
-		return
+		log.LOGE("HTTP SERVER failed,err:", err)
+		panic(err)
 	}
-	fmt.Println("Closing API server ...")
+	log.LOGI("Closing API server ...")
 }
 
 var rootCmd = &cobra.Command{
@@ -152,7 +210,7 @@ func initConfig() {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		log.LOGI(err)
 		os.Exit(1)
 	}
 }
