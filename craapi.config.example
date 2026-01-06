@@ -1,20 +1,79 @@
+# CRAAPI configuration example (TOML)
+# Save as: craapi.config  (or any filename, then run: ./craapi --config <file>)
 
-Port = # Port number | 端口号 
-ReadTimeout = 30 
-Servername = "" # listen domain/ip | 监听域名/ip地址
-WriteTimeout = 30 
+# -------------------------
+# Server / Global switches
+# -------------------------
+Servername = "0.0.0.0"      # Listen address (IP or domain). Use "0.0.0.0" to listen on all interfaces.
+Port       = 30021          # HTTP port
+ReadTimeout  = 30           # seconds
+WriteTimeout = 30           # seconds
 
+Domain = "example.com"      # Public domain used by Yggdrasil-related logic (set to your real domain)
+IgnoreClientIP = false      # If true, ignore the `ip` query validation in session server join
+
+# Debug logging
+Debug = false               # Enable verbose debug logs
+DebugShowPass = false       # If Debug=true, whether to print sensitive fields in logs (NOT recommended)
+
+# Used by the built-in user panel (these are read as ROOT keys in current code)
+DefaultPerferedLanguage = "ZH-CN"
+DefaultUserGroup = "user"
+
+# -----------
+# User panel
+# -----------
 [userpanel]
-DefaultPerferedLanguage = "ZH-CN" # default perfered language | 默认语言
-DefaultUserGroup = "user" # default user group | 默认用户组
-Enable = true # enable builtin panel | 启用内置面板
+Enable = true
 
+# ---------------
+# Yggdrasil API
+# ---------------
 [yggdrasilapi]
-Enable = true # enable yggdrasilapi | 启用 yggdrasilapi（世界树外置登录） 实现
+Enable = true
+SearchProfileMAX = 200
+SkinDomains = ["textures.example.com"]  # Domains allowed for skin/cape URLs (set to your deployment)
 
+# ---------
+# MongoDB
+# ---------
 [mongoDB]
-Database = "" # mongoDB database database name | mongoDB数据库数据库名
-Host = "localhost" # mongoDB database ip/domain | mongoDB数据库ip/域名
-Password = "" # mongoDB database password | mongoDB数据库登陆密码
-Port = 27017 # mongoDB database port | mongoDB数据库端口
-User = "" # mongoDB database username | mongoDB数据库用户名
+Host     = "127.0.0.1"
+Port     = 27017
+User     = ""
+Password = ""
+Database = "craapi"
+
+# -----
+# SMTP
+# -----
+[smtp]
+# Used for connecting to SMTP pool
+Host = "smtp.example.com"
+Port = 587
+Connection = 10
+
+# Credentials (for smtp.PlainAuth)
+Username = "noreply@example.com"
+AuthCode = "APP_PASSWORD_OR_SMTP_PASSWORD"
+
+# Used to build the email "From" header (display name + address)
+EmailName = "CRAAPI"
+Address   = "noreply@example.com"
+
+# Used by the user panel UI (kept for compatibility)
+Server = "smtp.example.com"
+
+# Optional: send a test email on startup
+Debug = false
+DebugSendAddress = "you@example.com"
+
+# ----------------
+# Tencent COS (optional)
+# ----------------
+[tencentCOS]
+Enable = false
+CosDomain = "https://<bucket>.cos.<region>.myqcloud.com"
+SecretId = ""
+SecretKey = ""
+EnhanceSecurity = true
